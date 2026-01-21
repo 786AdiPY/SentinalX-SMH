@@ -72,3 +72,4 @@ export default defineConfig([
 ])
 ```
 "# SMH-AGV" 
+"# SentinalX-SMH" 
