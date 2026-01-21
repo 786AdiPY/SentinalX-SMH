@@ -1,34 +1,35 @@
-import { Kafka, Partitioners } from 'kafkajs';
-
-/**
- * ============================================================================
- * 🛡️ RANGE SHIELD / NEURAL-GRID: FLEET SIMULATOR
- * ============================================================================
- * * This script simulates 3 AGVs moving along specific "Pac-Man" style paths defined 
- * by the user's map configuration.
- * * FEATURES:
- * - exact path following (no diagonal shortcuts)
- * - collision avoidance (waits if path is blocked)
- * - real-time telemetry streaming to Confluent Cloud
- */
+import { Kafka, Partitioners, logLevel } from 'kafkajs';
 
 // --- 1. CONFIGURATION -------------------------------------------------------
 
+// Validate environment variables
+const API_KEY = "6AY2CIH4H7UBVPZX";
+const API_SECRET = "cfltPrO/dig30COeulny9sF6mfykPDRP9wuRLUCaUq/aDoYUkBchX7s9R3c5QcQA";
+
+if (!API_KEY || !API_SECRET) {
+    console.error('❌ Missing CONFLUENT_API_KEY or CONFLUENT_API_SECRET environment variables');
+    console.error('   Run with: CONFLUENT_API_KEY=xxx CONFLUENT_API_SECRET=yyy npm run simulate');
+    process.exit(1);
+}
+
 const KAFKA_CONFIG = {
-    // 🔴 TODO: Replace with your Confluent Cloud details
-    brokers: ['CONFLUENT_BOOTSTRAP_SERVER'],
+    clientId: 'neural-grid-simulator',
+    brokers: ['pkc-xrnwx.asia-south2.gcp.confluent.cloud:9092'],
     ssl: true,
     sasl: {
         mechanism: 'plain' as const,
-        username: 'CONFLUENT_API_KEY',
-        password: 'CONFLUENT_API_SECRET',
+        username: API_KEY,
+        password: API_SECRET,
     },
+    connectionTimeout: 10000,
+    authenticationTimeout: 10000,
+    logLevel: logLevel.ERROR,
 };
 
 const TOPICS = {
-    AGV1: 'vehicle_gps_stream',
-    AGV2: 'vehicle_health_stream',
-    AGV3: 'vehicle_telementry',
+    AGV1: 'AGV1',
+    AGV2: 'AGV2',
+    AGV3: 'AGV3',
 };
 
 // Speed in coordinate units per tick (approx pixels per 200ms)
@@ -190,12 +191,78 @@ class AGV {
             timestamp: Date.now()
         };
     }
+
+    /**
+     * Enhanced update with configurable safety distance for collision avoidance.
+     * AGVs will wait if another AGV is within the safety distance.
+     */
+    updateWithCollisionAvoidance(activeAgvs: AGV[], safetyDistance: number) {
+        const target = this.route[this.targetIndex];
+
+        // 1. Calculate vector to target
+        const dx = target.x - this.currentPos.x;
+        const dy = target.y - this.currentPos.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        let status = "MOVING";
+
+        // 2. Check Arrival
+        if (dist <= AGV_SPEED) {
+            // Snap to target
+            this.currentPos = { ...target };
+            // Advance to next waypoint (Looping)
+            this.targetIndex = (this.targetIndex + 1) % this.route.length;
+        } else {
+            // 3. Collision Prediction with configurable safety distance
+            const moveRatio = AGV_SPEED / dist;
+            const nextX = this.currentPos.x + dx * moveRatio;
+            const nextY = this.currentPos.y + dy * moveRatio;
+
+            let collisionRisk = false;
+            for (const other of activeAgvs) {
+                if (other.id !== this.id) {
+                    // Check distance to other AGV's current position and predicted position
+                    const distToOther = Math.sqrt(
+                        Math.pow(nextX - other.currentPos.x, 2) +
+                        Math.pow(nextY - other.currentPos.y, 2)
+                    );
+                    if (distToOther < safetyDistance) {
+                        collisionRisk = true;
+                        break;
+                    }
+                }
+            }
+
+            if (collisionRisk) {
+                status = "WAITING"; // Hold position to avoid collision
+            } else {
+                // Move towards target
+                this.currentPos.x = nextX;
+                this.currentPos.y = nextY;
+            }
+        }
+
+        // 4. Return Data Payload
+        return {
+            id: this.id,
+            x: parseFloat(this.currentPos.x.toFixed(2)),
+            y: parseFloat(this.currentPos.y.toFixed(2)),
+            battery: Math.max(10, 100 - (Date.now() % 300000) / 3000),
+            status: status,
+            timestamp: Date.now()
+        };
+    }
 }
 
 // --- 4. MAIN EXECUTION ------------------------------------------------------
 
+// Staggered start delays (in milliseconds)
+const START_DELAYS = [0, 3000, 6000]; // AGV1 starts immediately, AGV2 after 3s, AGV3 after 6s
+const SAFETY_DISTANCE = 12; // Increased safety bubble for collision avoidance
+
 async function main() {
     console.log("🚀 Starting Neural-Grid Fleet Simulation...");
+    console.log("📋 AGVs will start in sequence with 3 second intervals");
 
     // Initialize Kafka
     const kafka = new Kafka(KAFKA_CONFIG);
@@ -203,22 +270,55 @@ async function main() {
     await producer.connect();
     console.log("✅ Connected to Confluent Cloud");
 
-    // Initialize Fleet
+    // Initialize Fleet with staggered start flags
     const fleet = [
         new AGV("AGV-01", TOPICS.AGV1, ROUTES.AGV1, ROUTES.AGV1[0], "orange"),
         new AGV("AGV-02", TOPICS.AGV2, ROUTES.AGV2, ROUTES.AGV2[0], "cyan"),
         new AGV("AGV-03", TOPICS.AGV3, ROUTES.AGV3, ROUTES.AGV3[0], "green"),
     ];
 
+    // Track which AGVs are active
+    const activeFlags = [false, false, false];
+    const startTime = Date.now();
+
     console.log("📡 Streaming Telemetry...");
+    console.log("   AGV-01: Starting NOW ▶");
 
     // Simulation Loop (5Hz / 200ms)
     setInterval(async () => {
+        const elapsed = Date.now() - startTime;
         const messages = [];
 
-        // Update all AGVs
-        for (const agv of fleet) {
-            const data = agv.update(fleet);
+        // Activate AGVs based on staggered delays
+        for (let i = 0; i < fleet.length; i++) {
+            if (!activeFlags[i] && elapsed >= START_DELAYS[i]) {
+                activeFlags[i] = true;
+                console.log(`\n   ${fleet[i].id}: Starting NOW ▶`);
+            }
+        }
+
+        // Get list of active AGVs for collision detection
+        const activeAgvs = fleet.filter((_, i) => activeFlags[i]);
+
+        // Update only active AGVs
+        for (let i = 0; i < fleet.length; i++) {
+            const agv = fleet[i];
+            let data;
+
+            if (activeFlags[i]) {
+                // AGV is active - update position with collision avoidance
+                data = agv.updateWithCollisionAvoidance(activeAgvs, SAFETY_DISTANCE);
+            } else {
+                // AGV is waiting to start - send idle status at start position
+                data = {
+                    id: agv.id,
+                    x: agv.currentPos.x,
+                    y: agv.currentPos.y,
+                    battery: 100,
+                    status: "WAITING",
+                    timestamp: Date.now()
+                };
+            }
 
             // Add to batch
             messages.push({
@@ -228,9 +328,6 @@ async function main() {
                     value: JSON.stringify(data)
                 }]
             });
-
-            // Local log for debugging
-            // console.log(`${agv.id}: ${data.status} at [${data.x}, ${data.y}]`);
         }
 
         // Send batch to Kafka
@@ -240,7 +337,7 @@ async function main() {
                 process.stdout.write("."); // heartbeat
             }
         } catch (err) {
-            console.error("❌ Kafka Error:", err);
+            console.error("\n❌ Kafka Error:", err);
         }
 
     }, 200);

@@ -1,8 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import {
     LayoutDashboard,
-    Battery,
     Navigation,
     Box,
     Settings,
@@ -18,7 +17,7 @@ import './App.css';
 const ENGINE_ROWS = 100;
 const ENGINE_COLS = 150;
 
-// Factory zones displayed in sidebar (AGV Station removed - accessed via header button)
+// Factory zones displayed in sidebar
 const ZONES = [
     { id: 'workshop', name: 'Workshop', icon: Settings, rect: { x: 10, y: 10, w: 35, h: 30 }, color: '#f97316' },
     { id: 'materials', name: 'Material Space', icon: Box, rect: { x: 55, y: 10, w: 40, h: 30 }, color: '#22c55e' },
@@ -27,17 +26,12 @@ const ZONES = [
     { id: 'shipping', name: 'Shipping & EXIT', icon: Zap, rect: { x: 55, y: 70, w: 40, h: 22 }, color: '#ef4444' },
 ];
 
-// Red path segments that the AGV follows (array of polyline segments)
-// Grid: 100 rows x 150 cols. Obstacles are rectangles at specific positions.
-// Path placed in corridors between obstacles.
+// Red path segments that the AGV follows
 const AGV_PATH_SEGMENTS = [
-    // Outer perimeter path (inside the border walls)
     [{ x: 5, y: 5 }, { x: 5, y: 94 }],     // Left vertical
     [{ x: 5, y: 5 }, { x: 144, y: 5 }],    // Top horizontal
     [{ x: 144, y: 5 }, { x: 144, y: 94 }], // Right vertical  
     [{ x: 5, y: 94 }, { x: 144, y: 94 }],  // Bottom horizontal
-
-    // Middle horizontal corridor (between top and bottom zones)
     [{ x: 5, y: 42 }, { x: 52, y: 42 }],   // Left section
     [{ x: 52, y: 42 }, { x: 52, y: 5 }],   // Up to top
     [{ x: 50, y: 42 }, { x: 97, y: 42 }],  // Across middle
@@ -45,129 +39,73 @@ const AGV_PATH_SEGMENTS = [
     [{ x: 97, y: 5 }, { x: 107, y: 5 }],   // Across to control room area
     [{ x: 107, y: 5 }, { x: 107, y: 37 }], // Down to AGV station
     [{ x: 107, y: 37 }, { x: 144, y: 37 }],// Across to right side
-
-    // Bottom section corridors - between Supply Area and Shipping
     [{ x: 5, y: 67 }, { x: 52, y: 67 }],   // Above bottom zones
     [{ x: 52, y: 67 }, { x: 52, y: 94 }],  // Down between zones
     [{ x: 52, y: 42 }, { x: 52, y: 67 }],  // Vertical connector
-
-    // Right side of Shipping & EXIT
     [{ x: 97, y: 67 }, { x: 97, y: 94 }],  // Vertical on right of shipping
     [{ x: 97, y: 67 }, { x: 144, y: 67 }], // Horizontal to AGV station area
-
-    // === ZONE ENTRANCE PATHS ===
-    // Workshop entrance (bottom side at col ~27, row 39 -> connects to corridor at row 42)
     [{ x: 27, y: 39 }, { x: 27, y: 42 }],
-
-    // Material Space entrance (bottom side at col ~75, row 39 -> connects to corridor at row 42)
     [{ x: 75, y: 39 }, { x: 75, y: 42 }],
-
-    // Control Room entrance (bottom side at col ~125, row 29 -> connects down to AGV station corridor)
     [{ x: 125, y: 29 }, { x: 125, y: 37 }],
-
-    // AGV's Station entrance (left side at col 100, row ~52 -> connects to right corridor)      
     [{ x: 97, y: 52 }, { x: 100, y: 52 }],
-
-    // Supply Area entrance (top side at col ~27, row 70 -> connects to corridor at row 67)
     [{ x: 27, y: 67 }, { x: 27, y: 70 }],
-
-    // Shipping & EXIT entrance (top side at col ~75, row 70 -> connects to corridor at row 67)
     [{ x: 75, y: 67 }, { x: 75, y: 70 }],
-
-    // Additional connectors for zone entrances
-    [{ x: 27, y: 42 }, { x: 52, y: 42 }],  // Workshop to main corridor
-    [{ x: 75, y: 42 }, { x: 97, y: 42 }],  // Material Space to main corridor
-    [{ x: 125, y: 37 }, { x: 144, y: 37 }],// Control Room to right corridor
-    [{ x: 97, y: 52 }, { x: 97, y: 67 }],  // AGV Station connector
-    [{ x: 27, y: 67 }, { x: 52, y: 67 }],  // Supply Area to main corridor
-    [{ x: 75, y: 67 }, { x: 97, y: 67 }],  // Shipping to right corridor
+    [{ x: 27, y: 42 }, { x: 52, y: 42 }],
+    [{ x: 75, y: 42 }, { x: 97, y: 42 }],
+    [{ x: 125, y: 37 }, { x: 144, y: 37 }],
+    [{ x: 97, y: 52 }, { x: 97, y: 67 }],
+    [{ x: 27, y: 67 }, { x: 52, y: 67 }],
+    [{ x: 75, y: 67 }, { x: 97, y: 67 }],
 ];
 
-// Patrol waypoints following the path (in corridor spaces)
-const AGV_PATROL_PATH = [
-    { x: 50, y: 42 },  // Start in middle corridor
-    { x: 5, y: 42 },   // Go left
-    { x: 5, y: 5 },    // Go up to top-left corner
-    { x: 52, y: 5 },   // Go right across top
-    { x: 97, y: 5 },   // Continue right
-    { x: 107, y: 5 },  // Go to control room area
-    { x: 107, y: 37 }, // Go down to AGV station
-    { x: 144, y: 37 }, // Go right to edge
-    { x: 144, y: 67 }, // Go down
-    { x: 144, y: 94 }, // Go to bottom-right corner
-    { x: 97, y: 94 },  // Go left
-    { x: 52, y: 94 },  // Continue left (between zones)
-    { x: 52, y: 67 },  // Go up between Supply and Shipping
-    { x: 5, y: 67 },   // Go left
-    { x: 5, y: 94 },   // Go down to bottom-left
-    { x: 5, y: 42 },   // Go back up
-    { x: 50, y: 42 },  // Return to middle
+const AGV_ROUTES = {
+    AGV1: [{ x: 5, y: 5 }, { x: 144, y: 5 }, { x: 144, y: 94 }, { x: 5, y: 94 }],
+    AGV2: [
+        { x: 5, y: 42 }, { x: 52, y: 42 }, { x: 52, y: 5 }, { x: 97, y: 5 },
+        { x: 107, y: 5 }, { x: 107, y: 37 }, { x: 144, y: 37 }, { x: 144, y: 67 },
+        { x: 97, y: 67 }, { x: 97, y: 42 }, { x: 50, y: 42 }
+    ],
+    AGV3: [
+        { x: 5, y: 67 }, { x: 52, y: 67 }, { x: 52, y: 94 }, { x: 97, y: 94 },
+        { x: 97, y: 67 }, { x: 52, y: 67 }, { x: 52, y: 42 }, { x: 5, y: 42 }
+    ]
+};
+
+const AGV_FLEET_CONFIG = [
+    { id: 'AGV-01', route: AGV_ROUTES.AGV1, color: '#ff9d00' },
+    { id: 'AGV-02', route: AGV_ROUTES.AGV2, color: '#00f2ff' },
+    { id: 'AGV-03', route: AGV_ROUTES.AGV3, color: '#22c55e' },
 ];
 
-// Helper function to check if a point is on any path segment (within tolerance)
-const isPointOnPath = (x: number, y: number, tolerance: number = 2): boolean => {
-    for (const segment of AGV_PATH_SEGMENTS) {
-        const [p1, p2] = segment;
-        // Check if point is on this line segment
-        const minX = Math.min(p1.x, p2.x) - tolerance;
-        const maxX = Math.max(p1.x, p2.x) + tolerance;
-        const minY = Math.min(p1.y, p2.y) - tolerance;
-        const maxY = Math.max(p1.y, p2.y) + tolerance;
-
-        if (x >= minX && x <= maxX && y >= minY && y <= maxY) {
-            // Check distance to line segment
-            if (p1.x === p2.x) {
-                // Vertical line
-                if (Math.abs(x - p1.x) <= tolerance) return true;
-            } else if (p1.y === p2.y) {
-                // Horizontal line
-                if (Math.abs(y - p1.y) <= tolerance) return true;
-            }
-        }
-    }
-    return false;
-};
-
-// Find the nearest point on any path segment
-const getNearestPathPoint = (x: number, y: number): { x: number, y: number } => {
-    let nearestPoint = { x, y };
-    let minDist = Infinity;
-
-    for (const segment of AGV_PATH_SEGMENTS) {
-        const [p1, p2] = segment;
-        let projX: number, projY: number;
-
-        if (p1.x === p2.x) {
-            // Vertical line
-            projX = p1.x;
-            projY = Math.max(Math.min(p1.y, p2.y), Math.min(Math.max(p1.y, p2.y), y));
-        } else {
-            // Horizontal line
-            projX = Math.max(Math.min(p1.x, p2.x), Math.min(Math.max(p1.x, p2.x), x));
-            projY = p1.y;
-        }
-
-        const dist = Math.sqrt(Math.pow(x - projX, 2) + Math.pow(y - projY, 2));
-        if (dist < minDist) {
-            minDist = dist;
-            nearestPoint = { x: projX, y: projY };
-        }
-    }
-
-    return nearestPoint;
-};
 function Dashboard() {
     const [engine] = useState(new SLAMEngine(ENGINE_ROWS, ENGINE_COLS));
-    const [agvStatus, setAgvStatus] = useState({
-        state: 'Idle',
-        battery: 100,
-        currentZone: 'Unknown',
-        coordinates: { x: 75, y: 50 },
-        speed: 0
-    });
+    const [isSimulating, setIsSimulating] = useState(false);
+    const [simulationStartTime] = useState(Date.now());
+
+    const START_DELAYS = [0, 3000, 6000];
+    const SAFETY_DISTANCE = 12;
+
+    const fleetRef = useRef(
+        AGV_FLEET_CONFIG.map(config => ({
+            id: config.id,
+            color: config.color,
+            route: config.route,
+            pos: { ...config.route[0] },
+            targetIdx: 0,
+            battery: 100,
+            state: 'WAITING',
+            isActive: false,
+        }))
+    );
+
+    const [agvFleet, setAgvFleet] = useState(fleetRef.current);
+    const primaryAgv = agvFleet[0];
+
+    const handleStartSimulation = () => {
+        setIsSimulating(!isSimulating);
+    };
 
     useEffect(() => {
-        // Reveal the entire map immediately on initialization
         engine.revealFullMap();
     }, [engine]);
 
@@ -178,43 +116,69 @@ function Dashboard() {
         if (!ctx) return;
 
         let animationId: number;
-        let patrolIdx = 0;
+        const speed = 0.5;
+        let frameCount = 0;
 
         const render = () => {
-            const speed = 0.3;
+            const elapsed = Date.now() - simulationStartTime;
 
-            // Simulated telemetry - AGV follows patrol path automatically
-            const target = AGV_PATROL_PATH[patrolIdx];
-            const dist = Math.sqrt(Math.pow(target.x - engine.agvPos.x, 2) + Math.pow(target.y - engine.agvPos.y, 2));
+            // 1. Update positions in Ref (60fps)
+            fleetRef.current = fleetRef.current.map((agv, idx) => {
+                // AGVs move autonomously (dynamic) regardless of the button
+                if (!agv.isActive && elapsed >= START_DELAYS[idx]) {
+                    agv.isActive = true;
+                    agv.state = 'MOVING';
+                }
 
-            let dx = 0, dy = 0;
-            if (dist > 1) {
-                dx = ((target.x - engine.agvPos.x) / dist) * speed;
-                dy = ((target.y - engine.agvPos.y) / dist) * speed;
-            } else {
-                patrolIdx = (patrolIdx + 1) % AGV_PATROL_PATH.length;
+                if (!agv.isActive) return agv;
+
+                const target = agv.route[agv.targetIdx];
+                const dx = target.x - agv.pos.x;
+                const dy = target.y - agv.pos.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                if (dist <= (isSimulating ? speed * 2 : speed)) {
+                    agv.pos = { ...target };
+                    agv.targetIdx = (agv.targetIdx + 1) % agv.route.length;
+                } else {
+                    const currentSpeed = isSimulating ? speed * 2 : speed;
+                    const moveRatio = currentSpeed / dist;
+                    const nextX = agv.pos.x + dx * moveRatio;
+                    const nextY = agv.pos.y + dy * moveRatio;
+
+                    let collisionRisk = false;
+                    for (const other of fleetRef.current) {
+                        if (other.id !== agv.id && other.isActive) {
+                            const d = Math.sqrt(
+                                Math.pow(nextX - other.pos.x, 2) +
+                                Math.pow(nextY - other.pos.y, 2)
+                            );
+                            if (d < SAFETY_DISTANCE) {
+                                collisionRisk = true;
+                                break;
+                            }
+                        }
+                    }
+
+                    if (collisionRisk) {
+                        agv.state = 'WAITING';
+                    } else {
+                        agv.pos = { x: nextX, y: nextY };
+                        agv.state = 'MOVING';
+                    }
+                }
+
+                agv.battery = Math.max(0, agv.battery - 0.0001);
+                return agv;
+            });
+
+            // 2. Throttle React State updates (Sidebar/Telemetry) - ~6Hz
+            frameCount++;
+            if (frameCount % 10 === 0) {
+                setAgvFleet([...fleetRef.current]);
             }
 
-            const moved = engine.move(dx, dy);
-
-            // Constrain AGV to path
-            if (!isPointOnPath(engine.agvPos.x, engine.agvPos.y, 3)) {
-                const nearestPath = getNearestPathPoint(engine.agvPos.x, engine.agvPos.y);
-                engine.agvPos.x = nearestPath.x;
-                engine.agvPos.y = nearestPath.y;
-            }
-
-            // Only drain battery when actually moving
-            const actuallyMoved = moved && (dx !== 0 || dy !== 0);
-            setAgvStatus(prev => ({
-                ...prev,
-                state: actuallyMoved ? 'Moving' : 'Idle',
-                battery: actuallyMoved ? Math.max(0, prev.battery - 0.003) : prev.battery,
-                currentZone: determineZone(engine.agvPos.x, engine.agvPos.y),
-                coordinates: { x: engine.agvPos.x, y: engine.agvPos.y },
-                speed: actuallyMoved ? speed : 0
-            }));
-
+            // 3. Draw to Canvas (60fps)
             const cellSize = Math.floor(Math.min(canvas.width / ENGINE_COLS, canvas.height / ENGINE_ROWS));
             const offsetX = Math.floor((canvas.width - ENGINE_COLS * cellSize) / 2);
             const offsetY = Math.floor((canvas.height - ENGINE_ROWS * cellSize) / 2);
@@ -235,7 +199,6 @@ function Dashboard() {
                 }
             }
 
-            // Draw the red dotted AGV path
             ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 2;
             ctx.setLineDash([6, 4]);
@@ -248,13 +211,19 @@ function Dashboard() {
                 ctx.stroke();
             }
             ctx.setLineDash([]);
-            ctx.lineWidth = 1;
 
-            // Draw AGV marker
-            ctx.fillStyle = '#ff9d00';
-            ctx.beginPath();
-            ctx.arc(offsetX + engine.agvPos.x * cellSize, offsetY + engine.agvPos.y * cellSize, cellSize * 1.5, 0, Math.PI * 2);
-            ctx.fill();
+            fleetRef.current.forEach(agv => {
+                ctx.fillStyle = agv.color;
+                ctx.beginPath();
+                ctx.arc(offsetX + agv.pos.x * cellSize, offsetY + agv.pos.y * cellSize, cellSize * 1.5, 0, Math.PI * 2);
+                ctx.fill();
+
+                ctx.fillStyle = '#000';
+                ctx.font = `bold ${Math.max(8, cellSize)}px Inter, sans-serif`;
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(agv.id.split('-')[1], offsetX + agv.pos.x * cellSize, offsetY + agv.pos.y * cellSize);
+            });
 
             animationId = requestAnimationFrame(render);
         };
@@ -270,12 +239,14 @@ function Dashboard() {
             cancelAnimationFrame(animationId);
             window.removeEventListener('resize', handleResize);
         };
-    }, [engine]);
+    }, [engine, isSimulating, simulationStartTime]);
 
     const determineZone = (x: number, y: number) => {
         const zone = ZONES.find(z => x >= z.rect.x && x <= z.rect.x + z.rect.w && y >= z.rect.y && y <= z.rect.y + z.rect.h);
         return zone ? zone.name : 'Neutral Zone';
     };
+
+    const primaryAgvZone = determineZone(primaryAgv.pos.x, primaryAgv.pos.y);
 
     return (
         <div className="dashboard-container">
@@ -285,10 +256,26 @@ function Dashboard() {
                     <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>NEURAL-GRID <span style={{ color: 'var(--text-dim)', fontWeight: 300 }}>WMS</span></h1>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                    <div className="telemetry-badge">
-                        <Activity size={14} />
-                        <span>LIVE TELEMETRY</span>
-                        <span className="pulse-dot"></span>
+                    <button
+                        onClick={handleStartSimulation}
+                        className={`simulation-btn ${isSimulating ? 'active' : ''}`}
+                    >
+                        {isSimulating ? (
+                            <>
+                                <Zap size={16} />
+                                <span>Stop Streaming</span>
+                            </>
+                        ) : (
+                            <>
+                                <Zap size={16} />
+                                <span>Start Streaming</span>
+                            </>
+                        )}
+                    </button>
+                    <div className={`telemetry-badge ${isSimulating ? '' : 'inactive'}`}>
+                        <div className="status-dot"></div>
+                        <span>{isSimulating ? 'STREAMING' : 'STANDBY'}</span>
+                        {isSimulating && <span className="pulse-dot"></span>}
                     </div>
                     <Link to="/agv-station" className="agv-station-btn">
                         <Truck size={16} />
@@ -301,10 +288,10 @@ function Dashboard() {
                 <div className="title">Factory Zones</div>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: '12px' }}>MONITORING</div>
                 {ZONES.map(zone => (
-                    <div key={zone.id} className={`card zone-card ${agvStatus.currentZone === zone.name ? 'active' : ''}`} style={{ borderLeftColor: zone.color }}>
+                    <div key={zone.id} className={`card zone-card ${primaryAgvZone === zone.name ? 'active' : ''}`} style={{ borderLeftColor: zone.color }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                            <zone.icon size={18} color={agvStatus.currentZone === zone.name ? zone.color : 'var(--text-dim)'} />
-                            <span style={{ color: agvStatus.currentZone === zone.name ? zone.color : 'inherit' }}>{zone.name}</span>
+                            <zone.icon size={18} color={primaryAgvZone === zone.name ? zone.color : 'var(--text-dim)'} />
+                            <span style={{ color: primaryAgvZone === zone.name ? zone.color : 'inherit' }}>{zone.name}</span>
                         </div>
                     </div>
                 ))}
@@ -313,57 +300,32 @@ function Dashboard() {
             <main className="panel center-panel">
                 <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10 }}>
                     <div className="title" style={{ marginBottom: '8px' }}>Real-Time SLAM Map</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.5)', padding: '4px 8px', borderRadius: '4px' }}>TELEMETRY STREAM ACTIVE</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.5)', padding: '4px 8px', borderRadius: '4px' }}>3 AGVs ACTIVE</div>
                 </div>
                 <canvas id="slam-map" style={{ width: '100%', height: '100%' }}></canvas>
             </main>
 
             <aside className="panel">
-                <div className="title">Live Telemetry</div>
-                <div className="card">
-                    <div className="title" style={{ fontSize: '0.7rem' }}>Coordinates</div>
-                    <div style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-                            <span style={{ color: 'var(--text-dim)' }}>X:</span>
-                            <span style={{ fontWeight: 600 }}>{agvStatus.coordinates.x.toFixed(1)}</span>
+                <div className="title">Fleet Telemetry</div>
+                {agvFleet.map(agv => (
+                    <div key={agv.id} className="card" style={{ borderLeft: `3px solid ${agv.color}` }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
+                            <span style={{ fontWeight: 600, color: agv.color }}>{agv.id}</span>
+                            <span className="status-indicator" style={{ backgroundColor: agv.state === 'MOVING' ? 'var(--status-moving)' : 'var(--status-idle)' }}></span>
                         </div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                            <span style={{ color: 'var(--text-dim)' }}>Y:</span>
-                            <span style={{ fontWeight: 600 }}>{agvStatus.coordinates.y.toFixed(1)}</span>
+                        <div style={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'var(--text-dim)' }}>
+                            X: {agv.pos.x.toFixed(1)} | Y: {agv.pos.y.toFixed(1)}
+                        </div>
+                        <div style={{ width: '100%', height: '3px', background: '#333', borderRadius: '2px', marginTop: '6px' }}>
+                            <div style={{ width: `${agv.battery}%`, height: '100%', background: agv.color, borderRadius: '2px' }}></div>
                         </div>
                     </div>
-                </div>
-                <div className="card">
-                    <div className="title" style={{ fontSize: '0.7rem' }}>Status</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>{agvStatus.state}</span>
-                        <span className="status-indicator" style={{ backgroundColor: agvStatus.state === 'Moving' ? 'var(--status-moving)' : 'var(--status-idle)' }}></span>
-                    </div>
-                </div>
-                <div className="card">
-                    <div className="title" style={{ fontSize: '0.7rem' }}>Speed</div>
-                    <span style={{ fontWeight: 600 }}>{agvStatus.speed.toFixed(2)} m/s</span>
-                </div>
-                <div className="card">
-                    <div className="title" style={{ fontSize: '0.7rem' }}>Battery</div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span style={{ fontWeight: 600 }}>{Math.round(agvStatus.battery)}%</span>
-                        <Battery size={18} color={agvStatus.battery > 20 ? 'var(--status-moving)' : 'var(--status-alert)'} />
-                    </div>
-                    <div style={{ width: '100%', height: '4px', background: '#333', borderRadius: '2px', marginTop: '8px' }}>
-                        <div style={{ width: `${agvStatus.battery}%`, height: '100%', background: 'var(--accent-primary)', borderRadius: '2px' }}></div>
-                    </div>
-                </div>
-                <div className="card">
-                    <div className="title" style={{ fontSize: '0.7rem' }}>Current Zone</div>
-                    <span style={{ fontWeight: 600 }}>{agvStatus.currentZone}</span>
-                </div>
+                ))}
             </aside>
         </div>
     );
 }
 
-// Main App with Router
 function App() {
     return (
         <BrowserRouter>
@@ -376,4 +338,3 @@ function App() {
 }
 
 export default App;
-
