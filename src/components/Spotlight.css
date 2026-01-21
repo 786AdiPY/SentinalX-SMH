@@ -1,0 +1,74 @@
+.spotlight-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    pointer-events: none;
+    z-index: 9999;
+    mix-blend-mode: screen;
+    /* Helps the glow blend nicely with dark backgrounds */
+}
+
+/* Base class for cards that want the spotlight border effect */
+.spotlight-card {
+    position: relative;
+    background-color: var(--bg-card);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    overflow: hidden;
+}
+
+/* The glowing border effect */
+.spotlight-card::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    border-radius: inherit;
+    padding: 1.5px;
+    /* Border width */
+    background: radial-gradient(800px circle at var(--mouse-x) var(--mouse-y),
+            rgba(255, 255, 255, 0.4),
+            transparent 40%);
+    -webkit-mask:
+        linear-gradient(#fff 0 0) content-box,
+        linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.5s;
+}
+
+.spotlight-card:hover::before {
+    opacity: 1;
+}
+
+/* The inner glow effect */
+.spotlight-card::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(600px circle at var(--mouse-x) var(--mouse-y),
+            rgba(6, 182, 212, 0.1),
+            transparent 40%);
+    opacity: 0;
+    transition: opacity 0.5s;
+    pointer-events: none;
+    z-index: 1;
+}
+
+.spotlight-card:hover::after {
+    opacity: 1;
+}
+
+.spotlight-card>* {
+    position: relative;
+    z-index: 2;
+    /* Ensure content stays above the glow */
+}

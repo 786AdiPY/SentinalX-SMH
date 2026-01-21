@@ -1,0 +1,205 @@
+.orbit-system-container {
+    position: relative;
+    width: 500px;
+    height: 500px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    /* Let clicks pass through if needed */
+}
+
+/* Nucleus */
+.nucleus {
+    width: 80px;
+    height: 80px;
+    background: var(--bg-card);
+    border: 2px solid var(--accent-primary);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    box-shadow: 0 0 30px var(--accent-glow);
+}
+
+.nucleus-icon {
+    color: var(--accent-primary);
+    animation: pulse-icon 2s infinite ease-in-out;
+}
+
+.nucleus-glow {
+    position: absolute;
+    width: 120px;
+    height: 120px;
+    background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+    animation: pulse-glow 3s infinite ease-in-out;
+}
+
+/* Rings */
+.orbit-ring {
+    position: absolute;
+    border-radius: 50%;
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+}
+
+.ring-1 {
+    width: 180px;
+    height: 180px;
+    border-color: rgba(6, 182, 212, 0.1);
+}
+
+.ring-2 {
+    width: 320px;
+    height: 320px;
+}
+
+.ring-3 {
+    width: 460px;
+    height: 460px;
+    border-style: dashed;
+}
+
+/* Orbit Animation Containers */
+.orbiter-container {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    /* Border visible for debugging, but hidden for final look usually, 
+     but here we rely on the .orbit-ring div for the visible path */
+}
+
+.orbit-1 {
+    width: 180px;
+    height: 180px;
+    animation: rotate 10s linear infinite;
+}
+
+.orbit-2 {
+    width: 320px;
+    height: 320px;
+    animation: rotate 15s linear infinite;
+}
+
+.orbit-3 {
+    width: 460px;
+    height: 460px;
+    animation: rotate 25s linear infinite;
+}
+
+.reverse {
+    animation-direction: reverse;
+}
+
+/* The actual icon moving along the path */
+.orbiter-item {
+    position: absolute;
+    top: -16px;
+    /* Offset to center on the line */
+    left: 50%;
+    transform: translateX(-50%);
+    /* Center horizontally relative to its left pos */
+
+    width: 32px;
+    height: 32px;
+    background: var(--bg-primary);
+    border: 1px solid var(--accent-primary);
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    color: var(--text-secondary);
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+/* Helper to place items at different spots on the circle */
+.delay-half {
+    top: auto;
+    bottom: -16px;
+    transform: translateX(-50%) rotate(180deg);
+}
+
+/* Simplistic placement */
+.delay-third {
+    top: 50%;
+    right: -16px;
+    left: auto;
+    transform: translateY(-50%) rotate(90deg);
+}
+
+/* Note: Creating perfect distribution with pure CSS keyframes on a container is tricky.
+   Better approach for perfect spacing: rotate the CONTAINER for each item. 
+   But for this visual effect, having them spin is enough.
+*/
+
+/* Reset rotation of icons so they stay upright? 
+   Actually, rotating alongside the parent is fine for abstract icons.
+   If we want them upright, we counter-rotate. */
+.orbiter-item svg {
+    animation: counter-rotate 10s linear infinite;
+    /* Match parent duration */
+}
+
+.orbit-2 .orbiter-item svg {
+    animation-duration: 15s;
+}
+
+.orbit-2.reverse .orbiter-item svg {
+    animation-direction: normal;
+    /* Container is reverse, so this should be normal to counter */
+}
+
+.orbit-3 .orbiter-item svg {
+    animation-duration: 25s;
+}
+
+@keyframes rotate {
+    from {
+        transform: translate(-50%, -50%) rotate(0deg);
+    }
+
+    to {
+        transform: translate(-50%, -50%) rotate(360deg);
+    }
+}
+
+@keyframes counter-rotate {
+    from {
+        transform: rotate(0deg);
+    }
+
+    to {
+        transform: rotate(-360deg);
+    }
+}
+
+@keyframes pulse-icon {
+
+    0%,
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+
+    50% {
+        transform: scale(0.9);
+        opacity: 0.8;
+    }
+}
+
+@keyframes pulse-glow {
+
+    0%,
+    100% {
+        opacity: 0.5;
+        transform: scale(1);
+    }
+
+    50% {
+        opacity: 0.2;
+        transform: scale(1.1);
+    }
+}
