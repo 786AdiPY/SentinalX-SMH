@@ -29,12 +29,17 @@ export class SLAMEngine {
             this.groundTruth[0][j] = CellType.WALL;
             this.groundTruth[this.rows - 1][j] = CellType.WALL;
         }
-        this.addRect(10, 10, 30, 35);
-        this.addRect(10, 55, 30, 40);
-        this.addRect(10, 110, 20, 30);
-        this.addRect(45, 100, 30, 40);
-        this.addRect(65, 10, 25, 50);
-        this.addRect(65, 75, 25, 65);
+        // Top row zones
+        this.addRect(10, 10, 30, 35);     // Workshop (row 10-39, col 10-44)
+        this.addRect(10, 55, 30, 40);     // Material Space (row 10-39, col 55-94)
+        this.addRect(10, 110, 20, 30);    // Control Room (row 10-29, col 110-139)
+
+        // Middle-right zone
+        this.addRect(40, 100, 25, 40);    // AGV's Station (row 40-64, col 100-139)
+
+        // Bottom row zones - SEPARATED
+        this.addRect(70, 10, 22, 35);     // Supply Area (row 70-91, col 10-44)
+        this.addRect(70, 55, 22, 40);     // Shipping & EXIT (row 70-91, col 55-94)
     }
 
     private addRect(r: number, c: number, h: number, w: number) {
@@ -62,6 +67,14 @@ export class SLAMEngine {
                 } else {
                     this.grid[ry][rx] = CellType.FREE;
                 }
+            }
+        }
+    }
+
+    revealFullMap() {
+        for (let r = 0; r < this.rows; r++) {
+            for (let c = 0; c < this.cols; c++) {
+                this.grid[r][c] = this.groundTruth[r][c];
             }
         }
     }
