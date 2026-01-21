@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import {
     LayoutDashboard,
     Battery,
@@ -7,19 +8,21 @@ import {
     Settings,
     Shield,
     Zap,
-    Cpu
+    Truck,
+    Activity
 } from 'lucide-react';
 import { SLAMEngine, CellType } from './slam-engine';
+import AGVStation from './pages/AGVStation';
 import './App.css';
 
 const ENGINE_ROWS = 100;
 const ENGINE_COLS = 150;
 
+// Factory zones displayed in sidebar (AGV Station removed - accessed via header button)
 const ZONES = [
     { id: 'workshop', name: 'Workshop', icon: Settings, rect: { x: 10, y: 10, w: 35, h: 30 }, color: '#f97316' },
     { id: 'materials', name: 'Material Space', icon: Box, rect: { x: 55, y: 10, w: 40, h: 30 }, color: '#22c55e' },
     { id: 'control', name: 'Control Room', icon: Shield, rect: { x: 110, y: 10, w: 30, h: 20 }, color: '#3b82f6' },
-    { id: 'station', name: "AGV's Station", icon: Battery, rect: { x: 100, y: 40, w: 40, h: 25 }, color: '#facc15' },
     { id: 'supply', name: 'Supply Area', icon: Navigation, rect: { x: 10, y: 70, w: 35, h: 22 }, color: '#a855f7' },
     { id: 'shipping', name: 'Shipping & EXIT', icon: Zap, rect: { x: 55, y: 70, w: 40, h: 22 }, color: '#ef4444' },
 ];
@@ -153,33 +156,15 @@ const getNearestPathPoint = (x: number, y: number): { x: number, y: number } => 
 
     return nearestPoint;
 };
-
-function App() {
+function Dashboard() {
     const [engine] = useState(new SLAMEngine(ENGINE_ROWS, ENGINE_COLS));
     const [agvStatus, setAgvStatus] = useState({
         state: 'Idle',
-        load: 'Normal',
         battery: 100,
-        currentZone: 'Unknown'
+        currentZone: 'Unknown',
+        coordinates: { x: 75, y: 50 },
+        speed: 0
     });
-    const [controlMode, setControlMode] = useState<'Auto' | 'Manual'>('Auto');
-    const [navTarget, setNavTarget] = useState<{ x: number, y: number } | null>(null);
-    const keysPressed = useRef<Set<string>>(new Set());
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (controlMode === 'Manual') keysPressed.current.add(e.key);
-        };
-        const handleKeyUp = (e: KeyboardEvent) => {
-            if (controlMode === 'Manual') keysPressed.current.delete(e.key);
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        window.addEventListener('keyup', handleKeyUp);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-            window.removeEventListener('keyup', handleKeyUp);
-        };
-    }, [controlMode]);
 
     useEffect(() => {
         // Reveal the entire map immediately on initialization
@@ -196,30 +181,23 @@ function App() {
         let patrolIdx = 0;
 
         const render = () => {
-            let dx = 0, dy = 0;
             const speed = 0.3;
 
-            if (controlMode === 'Manual') {
-                if (keysPressed.current.has('ArrowUp')) dy -= speed;
-                if (keysPressed.current.has('ArrowDown')) dy += speed;
-                if (keysPressed.current.has('ArrowLeft')) dx -= speed;
-                if (keysPressed.current.has('ArrowRight')) dx += speed;
+            // Simulated telemetry - AGV follows patrol path automatically
+            const target = AGV_PATROL_PATH[patrolIdx];
+            const dist = Math.sqrt(Math.pow(target.x - engine.agvPos.x, 2) + Math.pow(target.y - engine.agvPos.y, 2));
+
+            let dx = 0, dy = 0;
+            if (dist > 1) {
+                dx = ((target.x - engine.agvPos.x) / dist) * speed;
+                dy = ((target.y - engine.agvPos.y) / dist) * speed;
             } else {
-                const target = navTarget || AGV_PATROL_PATH[patrolIdx];
-                const dist = Math.sqrt(Math.pow(target.x - engine.agvPos.x, 2) + Math.pow(target.y - engine.agvPos.y, 2));
-                if (dist > 1) {
-                    dx = ((target.x - engine.agvPos.x) / dist) * speed;
-                    dy = ((target.y - engine.agvPos.y) / dist) * speed;
-                } else if (!navTarget) {
-                    patrolIdx = (patrolIdx + 1) % AGV_PATROL_PATH.length;
-                } else {
-                    setNavTarget(null);
-                }
+                patrolIdx = (patrolIdx + 1) % AGV_PATROL_PATH.length;
             }
 
             const moved = engine.move(dx, dy);
 
-            // Constrain AGV to path - if moved off path, snap to nearest path point
+            // Constrain AGV to path
             if (!isPointOnPath(engine.agvPos.x, engine.agvPos.y, 3)) {
                 const nearestPath = getNearestPathPoint(engine.agvPos.x, engine.agvPos.y);
                 engine.agvPos.x = nearestPath.x;
@@ -230,9 +208,11 @@ function App() {
             const actuallyMoved = moved && (dx !== 0 || dy !== 0);
             setAgvStatus(prev => ({
                 ...prev,
-                state: actuallyMoved ? 'Moving' : (dx === 0 && dy === 0 ? 'Idle' : 'Blocked'),
-                battery: actuallyMoved ? Math.max(0, prev.battery - 0.005) : prev.battery,
-                currentZone: determineZone(engine.agvPos.x, engine.agvPos.y)
+                state: actuallyMoved ? 'Moving' : 'Idle',
+                battery: actuallyMoved ? Math.max(0, prev.battery - 0.003) : prev.battery,
+                currentZone: determineZone(engine.agvPos.x, engine.agvPos.y),
+                coordinates: { x: engine.agvPos.x, y: engine.agvPos.y },
+                speed: actuallyMoved ? speed : 0
             }));
 
             const cellSize = Math.floor(Math.min(canvas.width / ENGINE_COLS, canvas.height / ENGINE_ROWS));
@@ -270,17 +250,7 @@ function App() {
             ctx.setLineDash([]);
             ctx.lineWidth = 1;
 
-            // Draw nav target line if manually set
-            if (navTarget) {
-                ctx.strokeStyle = 'rgba(0, 242, 255, 0.4)';
-                ctx.setLineDash([5, 5]);
-                ctx.beginPath();
-                ctx.moveTo(offsetX + engine.agvPos.x * cellSize, offsetY + engine.agvPos.y * cellSize);
-                ctx.lineTo(offsetX + navTarget.x * cellSize, offsetY + navTarget.y * cellSize);
-                ctx.stroke();
-                ctx.setLineDash([]);
-            }
-
+            // Draw AGV marker
             ctx.fillStyle = '#ff9d00';
             ctx.beginPath();
             ctx.arc(offsetX + engine.agvPos.x * cellSize, offsetY + engine.agvPos.y * cellSize, cellSize * 1.5, 0, Math.PI * 2);
@@ -300,16 +270,11 @@ function App() {
             cancelAnimationFrame(animationId);
             window.removeEventListener('resize', handleResize);
         };
-    }, [engine, controlMode, navTarget]);
+    }, [engine]);
 
     const determineZone = (x: number, y: number) => {
         const zone = ZONES.find(z => x >= z.rect.x && x <= z.rect.x + z.rect.w && y >= z.rect.y && y <= z.rect.y + z.rect.h);
         return zone ? zone.name : 'Neutral Zone';
-    };
-
-    const setTarget = (rect: { x: number, y: number, w: number, h: number }) => {
-        setNavTarget({ x: rect.x + rect.w / 2, y: rect.y + rect.h / 2 });
-        setControlMode('Manual');  // Switch to Manual mode when clicking a zone
     };
 
     return (
@@ -317,19 +282,26 @@ function App() {
             <header className="header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <LayoutDashboard color="var(--accent-primary)" />
-                    <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>NEURAL-GRID <span style={{ color: 'var(--text-dim)', fontWeight: 300 }}>AGV CONTROL</span></h1>
+                    <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>NEURAL-GRID <span style={{ color: 'var(--text-dim)', fontWeight: 300 }}>WMS</span></h1>
                 </div>
-                <div style={{ display: 'flex', gap: '20px' }}>
-                    <div className={`mode-toggle ${controlMode === 'Auto' ? 'active' : ''}`} onClick={() => setControlMode('Auto')}><Cpu size={16} /> AUTO</div>
-                    <div className={`mode-toggle ${controlMode === 'Manual' ? 'active' : ''}`} onClick={() => setControlMode('Manual')}><Zap size={16} /> MANUAL</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+                    <div className="telemetry-badge">
+                        <Activity size={14} />
+                        <span>LIVE TELEMETRY</span>
+                        <span className="pulse-dot"></span>
+                    </div>
+                    <Link to="/agv-station" className="agv-station-btn">
+                        <Truck size={16} />
+                        <span>AGV Station</span>
+                    </Link>
                 </div>
             </header>
 
             <aside className="panel">
                 <div className="title">Factory Zones</div>
-                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: '12px' }}>CLICK TO NAVIGATE</div>
+                <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginBottom: '12px' }}>MONITORING</div>
                 {ZONES.map(zone => (
-                    <div key={zone.id} className={`card zone-card ${agvStatus.currentZone === zone.name ? 'active' : ''}`} onClick={() => setTarget(zone.rect)} style={{ borderLeftColor: zone.color }}>
+                    <div key={zone.id} className={`card zone-card ${agvStatus.currentZone === zone.name ? 'active' : ''}`} style={{ borderLeftColor: zone.color }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                             <zone.icon size={18} color={agvStatus.currentZone === zone.name ? zone.color : 'var(--text-dim)'} />
                             <span style={{ color: agvStatus.currentZone === zone.name ? zone.color : 'inherit' }}>{zone.name}</span>
@@ -341,19 +313,36 @@ function App() {
             <main className="panel center-panel">
                 <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10 }}>
                     <div className="title" style={{ marginBottom: '8px' }}>Real-Time SLAM Map</div>
-                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.5)', padding: '4px 8px', borderRadius: '4px' }}>MODE: {controlMode.toUpperCase()}</div>
+                    <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.5)', padding: '4px 8px', borderRadius: '4px' }}>TELEMETRY STREAM ACTIVE</div>
                 </div>
                 <canvas id="slam-map" style={{ width: '100%', height: '100%' }}></canvas>
             </main>
 
             <aside className="panel">
-                <div className="title">AGV-01 Telemetry</div>
+                <div className="title">Live Telemetry</div>
+                <div className="card">
+                    <div className="title" style={{ fontSize: '0.7rem' }}>Coordinates</div>
+                    <div style={{ fontFamily: 'monospace', fontSize: '0.9rem' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
+                            <span style={{ color: 'var(--text-dim)' }}>X:</span>
+                            <span style={{ fontWeight: 600 }}>{agvStatus.coordinates.x.toFixed(1)}</span>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <span style={{ color: 'var(--text-dim)' }}>Y:</span>
+                            <span style={{ fontWeight: 600 }}>{agvStatus.coordinates.y.toFixed(1)}</span>
+                        </div>
+                    </div>
+                </div>
                 <div className="card">
                     <div className="title" style={{ fontSize: '0.7rem' }}>Status</div>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span style={{ fontSize: '1.2rem', fontWeight: 600 }}>{agvStatus.state}</span>
                         <span className="status-indicator" style={{ backgroundColor: agvStatus.state === 'Moving' ? 'var(--status-moving)' : 'var(--status-idle)' }}></span>
                     </div>
+                </div>
+                <div className="card">
+                    <div className="title" style={{ fontSize: '0.7rem' }}>Speed</div>
+                    <span style={{ fontWeight: 600 }}>{agvStatus.speed.toFixed(2)} m/s</span>
                 </div>
                 <div className="card">
                     <div className="title" style={{ fontSize: '0.7rem' }}>Battery</div>
@@ -374,4 +363,17 @@ function App() {
     );
 }
 
+// Main App with Router
+function App() {
+    return (
+        <BrowserRouter>
+            <Routes>
+                <Route path="/" element={<Dashboard />} />
+                <Route path="/agv-station" element={<AGVStation />} />
+            </Routes>
+        </BrowserRouter>
+    );
+}
+
 export default App;
+
