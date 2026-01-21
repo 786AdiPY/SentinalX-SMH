@@ -11,6 +11,7 @@
     "simulate": "tsx src/scripts/simulate-telemetry.ts"
   },
   "dependencies": {
+    "framer-motion": "^12.28.1",
     "kafkajs": "^2.2.4",
     "lucide-react": "^0.562.0",
     "react": "^19.2.0",

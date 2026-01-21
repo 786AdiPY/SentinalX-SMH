@@ -1,0 +1,195 @@
+.gallery-section {
+    background-color: var(--bg-primary);
+}
+
+.gallery-layout {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 3rem;
+}
+
+.gallery-item {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+.mockup-window {
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    height: 240px;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.gallery-item:hover .mockup-window {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0, 0, 0, 0.3);
+    border-color: var(--accent-hover);
+}
+
+.window-header {
+    height: 32px;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    padding: 0 1rem;
+    justify-content: space-between;
+}
+
+.dots {
+    display: flex;
+    gap: 6px;
+}
+
+.dots span {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    opacity: 0.5;
+}
+
+.window-title {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.window-content {
+    flex: 1;
+    position: relative;
+    background: #0f172a;
+}
+
+/* Map Mockup */
+.mock-map {
+    width: 100%;
+    height: 100%;
+    background-image: radial-gradient(var(--bg-card) 1px, transparent 1px);
+    background-size: 20px 20px;
+    position: relative;
+}
+
+.mock-agv {
+    width: 12px;
+    height: 12px;
+    background: var(--accent-primary);
+    border-radius: 2px;
+    position: absolute;
+    box-shadow: 0 0 10px var(--accent-primary);
+}
+
+.a1 {
+    top: 30%;
+    left: 40%;
+}
+
+.a2 {
+    top: 60%;
+    left: 70%;
+}
+
+.mock-wall {
+    background: var(--bg-card);
+    position: absolute;
+}
+
+.w1 {
+    top: 20%;
+    left: 20%;
+    width: 10px;
+    height: 100px;
+}
+
+.w2 {
+    top: 80%;
+    left: 50%;
+    width: 100px;
+    height: 10px;
+}
+
+/* Analytics Mockup */
+.mock-charts {
+    width: 100%;
+    height: 100%;
+    padding: 2rem;
+    display: flex;
+    gap: 1rem;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.bar {
+    flex: 1;
+    background: var(--bg-card);
+    transition: height 0.5s;
+    border-radius: 4px 4px 0 0;
+}
+
+.b1 {
+    height: 40%;
+    background: #3b82f6;
+}
+
+.b2 {
+    height: 70%;
+    background: var(--accent-primary);
+}
+
+.b3 {
+    height: 50%;
+    background: #10b981;
+}
+
+/* Config Mockup */
+.mock-config {
+    padding: 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+}
+
+.zones {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.zone {
+    height: 40px;
+    border: 1px dashed var(--text-muted);
+    border-radius: 8px;
+}
+
+.controls {
+    width: 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.switch {
+    height: 20px;
+    width: 40px;
+    background: var(--bg-card);
+    border-radius: 10px;
+}
+
+.switch.on {
+    background: var(--accent-primary);
+}
+
+.gallery-info h3 {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+}
+
+.gallery-info p {
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}

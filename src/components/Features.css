@@ -1,0 +1,207 @@
+.features-section {
+    background-color: var(--bg-primary);
+}
+
+.mb-16 {
+    margin-bottom: 4rem;
+}
+
+.section-title {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 1rem;
+}
+
+.section-subtitle {
+    color: var(--text-secondary);
+    font-size: 1.125rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.features-grid {
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: 2rem;
+}
+
+.feature-card {
+    background-color: var(--bg-card);
+    padding: 2rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    overflow: hidden;
+    height: 320px;
+    /* Fixed initial height */
+    display: flex;
+    flex-direction: column;
+}
+
+/* Back Glow Effect */
+.feature-card::before {
+    content: '';
+    position: absolute;
+    inset: -2px;
+    background: linear-gradient(45deg, var(--accent-primary), transparent, var(--accent-primary));
+    opacity: 0;
+    filter: blur(20px);
+    transition: opacity 0.4s ease;
+    z-index: -1;
+    border-radius: 16px;
+}
+
+.feature-card:hover::before {
+    opacity: 0.4;
+}
+
+.feature-card:hover {
+    transform: translateY(-8px) scale(1.02);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.6), 0 0 50px rgba(6, 182, 212, 0.2);
+    border-color: var(--accent-primary);
+    background-color: var(--bg-card);
+    z-index: 10;
+    cursor: zoom-in;
+}
+
+.feature-icon-wrapper {
+    display: inline-flex;
+    padding: 1rem;
+    background-color: rgba(6, 182, 212, 0.1);
+    border-radius: 12px;
+    margin-bottom: 1.5rem;
+    width: fit-content;
+    transition: all 0.4s ease;
+}
+
+/* Glow effect on hover */
+.feature-card:hover .feature-icon-wrapper {
+    background-color: var(--accent-primary);
+    box-shadow: 0 0 20px var(--accent-glow);
+    transform: scale(1.1);
+}
+
+.feature-card:hover .feature-icon-wrapper svg {
+    color: white;
+    /* Make icon white on hover */
+}
+
+.feature-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.feature-description {
+    color: var(--text-muted);
+    font-size: 0.95rem;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+    transition: opacity 0.3s ease, height 0.3s ease;
+}
+
+/* Optional: If we want to hide the short description on hover to "change" content
+   Uncommenting the below would hide the short one and show the long one. 
+   For now, I'll just keep both but ensure expansion works. 
+*/
+/* 
+.feature-card:hover .feature-description {
+    opacity: 0;
+    height: 0;
+    margin: 0;
+    overflow: hidden;
+} 
+*/
+
+/* Modal Styles */
+.modal-backdrop {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    z-index: 100;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 2rem;
+    cursor: zoom-out;
+}
+
+.modal-content {
+    background-color: var(--bg-card);
+    width: 100%;
+    max-width: 700px;
+    border-radius: 16px;
+    border: 1px solid var(--accent-primary);
+    box-shadow: 0 0 50px rgba(6, 182, 212, 0.3);
+    overflow: hidden;
+    position: relative;
+    z-index: 101;
+    display: flex;
+    flex-direction: column;
+    cursor: default;
+}
+
+.modal-header {
+    background: linear-gradient(to right, rgba(6, 182, 212, 0.1), transparent);
+    padding: 2rem 2rem 1rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: var(--text-primary);
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.modal-close-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Hide detail in grid card now that we have modal */
+.feature-card .feature-detail {
+    display: none;
+}
+
+/* Detail text section */
+.feature-detail {
+    display: block;
+    /* Ensure it's part of layout */
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transition: all 0.5s ease;
+}
+
+.feature-card.expanded .feature-detail {
+    max-height: 500px;
+    /* Large enough to fit detailed text */
+    opacity: 1;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.feature-detail p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    line-height: 1.6;
+}

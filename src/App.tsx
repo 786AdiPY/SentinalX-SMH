@@ -16,6 +16,7 @@ import {
 import { SLAMEngine, CellType } from './slam-engine';
 import AGVStation from './pages/AGVStation';
 import SheetView from './components/SheetView';
+import { Portfolio } from './components/Portfolio';
 import './App.css';
 
 const ENGINE_ROWS = 100;
@@ -379,7 +380,8 @@ function App() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/" element={<Dashboard />} />
+                <Route path="/" element={<Portfolio />} />
+                <Route path="/dashboard" element={<Dashboard />} />
                 <Route path="/agv-station" element={<AGVStation />} />
             </Routes>
         </BrowserRouter>
