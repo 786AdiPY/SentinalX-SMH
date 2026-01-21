@@ -102,3 +102,92 @@ body {
   display: inline-block;
   margin-right: 8px;
 }
+
+/* Collapsible Sidebar Styles */
+.panel.sidebar {
+  position: relative;
+  transition: width 0.3s ease, padding 0.3s ease;
+  width: 320px;
+  min-width: 320px;
+}
+
+.panel.sidebar.collapsed {
+  width: 60px;
+  min-width: 60px;
+  padding: 24px 8px;
+}
+
+.sidebar-toggle {
+  position: absolute;
+  top: 50%;
+  right: -14px;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border-color);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 10;
+  color: var(--text-dim);
+  transition: all 0.2s ease;
+}
+
+.sidebar-toggle:hover {
+  background: var(--accent-primary);
+  color: var(--bg-dark);
+  border-color: var(--accent-primary);
+}
+
+.sidebar-content {
+  opacity: 1;
+  transition: opacity 0.2s ease;
+}
+
+.panel.sidebar.collapsed .sidebar-content {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.collapsed-icons {
+  display: none;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  padding-top: 12px;
+}
+
+.panel.sidebar.collapsed .collapsed-icons {
+  display: flex;
+}
+
+.collapsed-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #242933;
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.collapsed-icon:hover {
+  border-color: var(--accent-primary);
+  background: rgba(0, 242, 255, 0.1);
+}
+
+.collapsed-icon.active {
+  background: rgba(0, 242, 255, 0.1);
+  border-color: var(--accent-primary);
+}
+
+/* Dashboard grid adjustment for collapsed sidebar */
+.dashboard-container.sidebar-collapsed {
+  grid-template-columns: 60px 1fr 340px;
+}

@@ -56,7 +56,7 @@ const AGV_FLEET: AGVInfo[] = [
 // Simulated live telemetry for each AGV
 const generateTelemetry = (agv: AGVInfo): TelemetryData => {
     const statuses: TelemetryData['status'][] = ['Moving', 'Idle', 'Charging', 'Loading'];
-    const zones = ['Workshop', 'Material Space', 'Control Room', 'AGV Station', 'Supply Area', 'Shipping & EXIT'];
+    const zones = ['Material Storage', 'Warehouse 1', 'Warehouse 2', 'Warehouse 3', 'Supply Room', 'Shipping and Exit'];
     const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
 
     return {
