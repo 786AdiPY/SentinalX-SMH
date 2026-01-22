@@ -258,8 +258,8 @@ function Dashboard() {
     const primaryAgvZone = determineZone(primaryAgv.pos.x, primaryAgv.pos.y);
 
     return (
-        <div className={`dashboard-container ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
-            <header className="header">
+        <div className={`agv-dashboard ${sidebarCollapsed ? 'sidebar-collapsed' : ''}`}>
+            <div className="agv-header">
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <LayoutDashboard color="var(--accent-primary)" />
                     <h1 style={{ fontSize: '1.25rem', fontWeight: 700 }}>NEURAL-GRID <span style={{ color: 'var(--text-dim)', fontWeight: 300 }}>WMS</span></h1>
@@ -291,9 +291,9 @@ function Dashboard() {
                         <span>AGV Station</span>
                     </Link>
                 </div>
-            </header>
+            </div>
 
-            <aside className={`panel sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
+            <div className={`agv-panel agv-sidebar ${sidebarCollapsed ? 'collapsed' : ''}`}>
                 <button
                     className="sidebar-toggle"
                     onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
@@ -333,7 +333,7 @@ function Dashboard() {
                         </div>
                     ))}
                 </div>
-            </aside>
+            </div>
 
             {selectedZone ? (
                 <SheetView
@@ -345,15 +345,15 @@ function Dashboard() {
                 />
             ) : (
                 <>
-                    <main className="panel center-panel">
+                    <div className="agv-panel agv-center-panel">
                         <div style={{ position: 'absolute', top: '20px', left: '20px', zIndex: 10 }}>
                             <div className="title" style={{ marginBottom: '8px' }}>Real-Time SLAM Map</div>
                             <div style={{ fontSize: '0.75rem', color: 'var(--text-dim)', background: 'rgba(0,0,0,0.5)', padding: '4px 8px', borderRadius: '4px' }}>3 AGVs ACTIVE</div>
                         </div>
                         <canvas id="slam-map" style={{ width: '100%', height: '100%' }}></canvas>
-                    </main>
+                    </div>
 
-                    <aside className="panel">
+                    <div className="agv-panel agv-right-panel">
                         <div className="title">Fleet Telemetry</div>
                         {agvFleet.map(agv => (
                             <div key={agv.id} className="card" style={{ borderLeft: `3px solid ${agv.color}` }}>
@@ -369,7 +369,7 @@ function Dashboard() {
                                 </div>
                             </div>
                         ))}
-                    </aside>
+                    </div>
                 </>
             )}
         </div>
